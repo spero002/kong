@@ -809,8 +809,8 @@ do
     ok, err, default_ws = declarative.load_into_cache(entities, meta, hash, SHADOW)
     if ok then
       ok, err = kong.worker_events.post("declarative", "flip_config", default_ws)
-      if ok ~= "done" then
-        return nil, "failed to flip declarative config cache pages: " .. (err or ok)
+      if not ok then
+        return nil, "failed to flip declarative config cache pages: " .. (err or "unknown error")
       end
 
     else
