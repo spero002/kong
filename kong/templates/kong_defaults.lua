@@ -8,6 +8,7 @@ admin_error_log = logs/error.log
 status_access_log = off
 status_error_log = logs/status_error.log
 plugins = bundled
+external_plugins_config = NONE
 go_pluginserver_exe = /usr/local/bin/go-pluginserver
 go_plugins_dir = off
 port_maps = NONE
@@ -163,4 +164,5 @@ lua_package_cpath = NONE
 
 role = traditional
 kic = off
+pluginserver_names = NONE
 ]]
