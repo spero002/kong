@@ -1941,7 +1941,7 @@ for _, strategy in helpers.each_strategy() do
 
             end)
 
-            it("perform passive health checks -- connection #timeouts", function()
+            it("perform passive health checks -- connection #timeouts #flaky", function()
 
               -- configure healthchecks
               bu.begin_testcase_setup(strategy, bp)
@@ -1990,6 +1990,8 @@ for _, strategy in helpers.each_strategy() do
 
               -- collect server results; hitcount
               local _, ok1, fail1 = server1:done()
+              -- FIXME: this done() sometimes sends the wrong req to the test
+              -- server (path "/" instead of "/shutdown")
               local _, ok2, fail2 = server2:done()
 
               -- verify

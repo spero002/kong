@@ -56,7 +56,7 @@ for _, strategy in helpers.each_strategy() do
       })
 
       assert(bp.routes:insert({
-        hosts      = { "least1.com" },
+        hosts      = { "least1.test" },
         protocols  = { "http" },
         service    = bp.services:insert({
           protocol = "http",
@@ -115,7 +115,7 @@ for _, strategy in helpers.each_strategy() do
             method = "GET",
             path = "/leastconnections",
             headers = {
-              ["Host"] = "least1.com"
+              ["Host"] = "least1.test"
             },
           }))
           assert(res.status == 200)
