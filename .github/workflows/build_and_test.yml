@@ -154,13 +154,9 @@ jobs:
     strategy:
       matrix:
         split: [first, second, all]
-        suite: [integration, plugins]
+        suite: [integration]
         database: [cassandra, postgres]
         exclude:
-          - suite: plugins
-            split: first
-          - suite: plugins
-            split: second
           - suite: integration
             split: all
 
