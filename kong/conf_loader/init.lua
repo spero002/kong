@@ -1165,6 +1165,22 @@ local function load_config_file(path)
 end
 
 
+local function gen_trusted_certs_combined_file(combined_filepath, paths)
+
+  log.verbose("generating trusted certs combined file in ",
+              combined_filepath)
+
+  local fd = assert(io.open(combined_filepath, "w"))
+
+  for _, path in ipairs(paths) do
+    fd:write(pl_file.read(path))
+    fd:write("\n")
+  end
+
+  io.close(fd)
+end
+
+
 --- Load Kong configuration
 -- The loaded configuration will have all properties from the default config
 -- merged with the (optionally) specified config file, environment variables
@@ -1541,6 +1557,11 @@ local function load(path, custom_conf, opts)
 
     conf.lua_ssl_trusted_certificate_combined =
       pl_path.abspath(pl_path.join(conf.prefix, ".ca_combined"))
+
+    gen_trusted_certs_combined_file(
+      conf.lua_ssl_trusted_certificate_combined,
+      conf.lua_ssl_trusted_certificate
+    )
   end
 
   if conf.cluster_cert and conf.cluster_cert_key then
