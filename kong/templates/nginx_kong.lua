@@ -15,24 +15,34 @@ lua_ssl_verify_depth   ${{LUA_SSL_VERIFY_DEPTH}};
 lua_ssl_trusted_certificate '${{LUA_SSL_TRUSTED_CERTIFICATE_COMBINED}}';
 > end
 
-lua_shared_dict kong                        5m;
-lua_shared_dict kong_locks                  8m;
-lua_shared_dict kong_healthchecks           5m;
-lua_shared_dict kong_process_events         5m;
-lua_shared_dict kong_cluster_events         5m;
-lua_shared_dict kong_rate_limiting_counters 12m;
-lua_shared_dict kong_core_db_cache          ${{MEM_CACHE_SIZE}};
-lua_shared_dict kong_core_db_cache_miss     12m;
-lua_shared_dict kong_db_cache               ${{MEM_CACHE_SIZE}};
-lua_shared_dict kong_db_cache_miss          12m;
-> if database == "off" then
-lua_shared_dict kong_core_db_cache_2        ${{MEM_CACHE_SIZE}};
-lua_shared_dict kong_core_db_cache_miss_2   12m;
-lua_shared_dict kong_db_cache_2             ${{MEM_CACHE_SIZE}};
-lua_shared_dict kong_db_cache_miss_2        12m;
-> end
+lua_shared_dict kong                          5m;
+lua_shared_dict kong_locks                    8m;
+lua_shared_dict kong_healthchecks             5m;
+lua_shared_dict kong_process_events           5m;
+lua_shared_dict kong_cluster_events           5m;
+lua_shared_dict kong_rate_limiting_counters   12m;
+lua_shared_dict kong_core_db_cache            ${{MEM_CACHE_SIZE}};
+lua_shared_dict kong_core_db_cache_miss       12m;
+lua_shared_dict kong_db_cache                 ${{MEM_CACHE_SIZE}};
+lua_shared_dict kong_db_cache_miss            12m;
 > if database == "cassandra" then
-lua_shared_dict kong_cassandra              5m;
+lua_shared_dict kong_cassandra                5m;
+> end
+
+> if database == "off" then
+lua_shared_dict kong_2                        5m;
+lua_shared_dict kong_locks_2                  8m;
+lua_shared_dict kong_healthchecks_2           5m;
+lua_shared_dict kong_process_events_2         5m;
+lua_shared_dict kong_cluster_events_2         5m;
+lua_shared_dict kong_rate_limiting_counters_2 12m;
+lua_shared_dict kong_core_db_cache_2          ${{MEM_CACHE_SIZE}};
+lua_shared_dict kong_core_db_cache_miss_2     12m;
+lua_shared_dict kong_db_cache_2               ${{MEM_CACHE_SIZE}};
+lua_shared_dict kong_db_cache_miss_2          12m;
+> if database == "cassandra" then
+lua_shared_dict kong_cassandra_2              5m;
+> end
 > end
 
 underscores_in_headers on;

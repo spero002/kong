@@ -170,6 +170,7 @@ local constants = {
   },
 
   CACHE_PAGE_KEY = "kong:cache:page",
+  SHM_PAGE_KEY = "kong:shm:page",
 
   CLUSTER_ID_PARAM_KEY = "cluster_id",
 }

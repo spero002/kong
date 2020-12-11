@@ -25,14 +25,23 @@ lua_shared_dict stream_kong_core_db_cache          ${{MEM_CACHE_SIZE}};
 lua_shared_dict stream_kong_core_db_cache_miss     12m;
 lua_shared_dict stream_kong_db_cache               ${{MEM_CACHE_SIZE}};
 lua_shared_dict stream_kong_db_cache_miss          12m;
-> if database == "off" then
-lua_shared_dict stream_kong_core_db_cache_2        ${{MEM_CACHE_SIZE}};
-lua_shared_dict stream_kong_core_db_cache_miss_2   12m;
-lua_shared_dict stream_kong_db_cache_2             ${{MEM_CACHE_SIZE}};
-lua_shared_dict stream_kong_db_cache_miss_2        12m;
-> end
 > if database == "cassandra" then
 lua_shared_dict stream_kong_cassandra              5m;
+> end
+> if database == "off" then
+lua_shared_dict stream_kong_2                        5m;
+lua_shared_dict stream_kong_locks_2                  8m;
+lua_shared_dict stream_kong_healthchecks_2           5m;
+lua_shared_dict stream_kong_process_events_2         5m;
+lua_shared_dict stream_kong_cluster_events_2         5m;
+lua_shared_dict stream_kong_rate_limiting_counters_2 12m;
+lua_shared_dict stream_kong_core_db_cache_2          ${{MEM_CACHE_SIZE}};
+lua_shared_dict stream_kong_core_db_cache_miss_2     12m;
+lua_shared_dict stream_kong_db_cache_2               ${{MEM_CACHE_SIZE}};
+lua_shared_dict stream_kong_db_cache_miss_2          12m;
+> if database == "cassandra" then
+lua_shared_dict stream_kong_cassandra_2              5m;
+> end
 > end
 
 > if ssl_ciphers then

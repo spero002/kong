@@ -23,9 +23,17 @@ function concurrency.with_worker_mutex(opts, fn)
     error("opts.timeout must be a number", 2)
   end
 
+  local shm_locks_name = "kong_locks"
+  if kong and kong.cache then
+    local page = kong.cache:get_page()
+    if page == 2 then
+      shm_locks_name = "kong_locks_2"
+    end
+  end
+
   local timeout = opts.timeout or 60
 
-  local rlock, err = resty_lock:new("kong_locks", {
+  local rlock, err = resty_lock:new("kong_locks_2", {
     exptime = timeout,
     timeout = timeout,
   })

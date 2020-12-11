@@ -147,13 +147,19 @@ function _M.new(opts)
     error("opts.resty_lock_opts must be a table", 2)
   end
 
+  local page = 1
+  if opts.cache_pages == 2 and opts.page then
+    page = opts.page
+  end
+
   local mlcaches = {}
   local shm_names = {}
 
   for i = 1, opts.cache_pages or 1 do
-    local channel_name  = (i == 1) and "mlcache"                 or "mlcache_2"
-    local shm_name      = (i == 1) and opts.shm_name             or opts.shm_name .. "_2"
-    local shm_miss_name = (i == 1) and opts.shm_name .. "_miss"  or opts.shm_name .. "_miss_2"
+    local channel_name   = (i == 1) and "mlcache"                 or "mlcache_2"
+    local shm_name       = (i == 1) and opts.shm_name             or opts.shm_name .. "_2"
+    local shm_miss_name  = (i == 1) and opts.shm_name .. "_miss"  or opts.shm_name .. "_miss_2"
+    local shm_locks_name = (i == 1) and "kong_locks"              or "kong_locks_2"
 
     if not ngx.shared[shm_name] then
       log(ERR, "shared dictionary ", shm_name, " not found")
@@ -166,7 +172,7 @@ function _M.new(opts)
     if ngx.shared[shm_name] then
       local mlcache, err = resty_mlcache.new(shm_name, shm_name, {
         shm_miss         = shm_miss_name,
-        shm_locks        = "kong_locks",
+        shm_locks        = shm_locks_name,
         shm_set_retries  = 3,
         lru_size         = LRU_SIZE,
         ttl              = max(opts.ttl     or 3600, 0),
@@ -196,11 +202,6 @@ function _M.new(opts)
       mlcaches[i] = mlcache
       shm_names[i] = shm_name
     end
-  end
-
-  local page = 1
-  if opts.cache_pages == 2 and opts.page then
-    page = opts.page
   end
 
   local self       = {

@@ -167,10 +167,12 @@ end
 
 local reset_kong_shm
 do
+  local SHM_PAGE_KEY = constants.SHM_PAGE_KEY
   local CACHE_PAGE_KEY = constants.CACHE_PAGE_KEY
 
   local preserve_keys = {
     "kong:node_id",
+    SHM_PAGE_KEY,
     CACHE_PAGE_KEY,
     "cluster_events:at",
     "events:requests",
@@ -189,12 +191,15 @@ do
   }
 
   reset_kong_shm = function()
-    local old_cache_page = ngx.shared.kong:get(CACHE_PAGE_KEY)
-    if old_cache_page == nil then
+    local old_shm_page = ngx.shared.kong:get(SHM_PAGE_KEY)
+    if old_shm_page == nil then
       -- fresh node, just storing the initial page
+      ngx.shared.kong:set(SHM_PAGE_KEY, 1)
       ngx.shared.kong:set(CACHE_PAGE_KEY, 1)
       return
     end
+
+    local old_cache_page = ngx.shared.kong:get(CACHE_PAGE_KEY) or 1
 
     local preserved = {}
 
