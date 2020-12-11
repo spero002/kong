@@ -169,6 +169,8 @@ local constants = {
     ttl = 60,
   },
 
+  CACHE_PAGE_KEY = "kong:cache:page",
+
   CLUSTER_ID_PARAM_KEY = "cluster_id",
 }
 
