@@ -5,7 +5,7 @@ local ngx_pipe = require "ngx.pipe"
 local pl_path = require "pl.path"
 local raw_log = require "ngx.errlog".raw_log
 
-local rpc = require "kong.db.dao.plugins.mp_rpc"
+local rpc = require "kong.runloop.plugin_servers.mp_rpc"
 
 local ngx = ngx
 local kong = kong
@@ -528,7 +528,7 @@ local function ask_info(server_def)
   end
 end
 
-local function load_all_infos()
+local function get_plugin_info(plugin_name)
   if not _plugin_infos then
     _plugin_infos = {}
 
@@ -537,7 +537,7 @@ local function load_all_infos()
     end
   end
 
-  return _plugin_infos
+  return _plugin_infos[plugin_name]
 end
 
 
@@ -545,7 +545,7 @@ local loaded_plugins = {}
 
 local function get_plugin(plugin_name)
   if not loaded_plugins[plugin_name] then
-    local plugin = load_all_infos()[plugin_name]
+    local plugin = get_plugin_info(plugin_name)
     loaded_plugins[plugin_name] = build_phases(plugin)
   end
 

@@ -4,7 +4,7 @@ local DAO = require "kong.db.dao"
 local plugin_loader = require "kong.db.schema.plugin_loader"
 local BasePlugin = require "kong.plugins.base_plugin"
 local reports = require "kong.reports"
-local external_plugins = require "kong.db.dao.plugins.external"
+local plugin_servers = require "kong.runloop.plugin_servers"
 
 
 local Plugins = {}
@@ -156,7 +156,7 @@ local function load_plugin_handler(plugin)
   local plugin_handler = "kong.plugins." .. plugin .. ".handler"
   local ok, handler = utils.load_module_if_exists(plugin_handler)
   if not ok then
-    ok, handler = external_plugins.load_plugin(plugin)
+    ok, handler = plugin_servers.load_plugin(plugin)
     if type(handler) == "table" then
       handler._go = true
     end

@@ -136,6 +136,8 @@ build = {
     ["kong.runloop.certificate"] = "kong/runloop/certificate.lua",
     ["kong.runloop.plugins_iterator"] = "kong/runloop/plugins_iterator.lua",
     ["kong.runloop.balancer"] = "kong/runloop/balancer.lua",
+    ["kong.runloop.plugin_servers"] = "kong/runloop/plugin_servers/init.lua",
+    ["kong.runloop.plugin_servers.mp_rpc"] = "kong/runloop/plugin_servers/mp_rpc.lua",
 
     ["kong.workspaces"] = "kong/workspaces/init.lua",
 
@@ -148,8 +150,6 @@ build = {
     ["kong.db.dao.targets"] = "kong/db/dao/targets.lua",
     ["kong.db.dao.plugins"] = "kong/db/dao/plugins.lua",
     ["kong.db.dao.plugins.go"] = "kong/db/dao/plugins/go.lua",
-    ["kong.db.dao.plugins.external"] = "kong/db/dao/plugins/external.lua",
-    ["kong.db.dao.plugins.mp_rpc"] = "kong/db/dao/plugins/mp_rpc.lua",
     ["kong.db.dao.tags"] = "kong/db/dao/tags.lua",
     ["kong.db.dao.workspaces"] = "kong/db/dao/workspaces.lua",
     ["kong.db.declarative"] = "kong/db/declarative/init.lua",
