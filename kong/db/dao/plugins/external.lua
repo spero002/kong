@@ -1,5 +1,7 @@
 local cjson = require "cjson.safe"
 local ngx_ssl = require "ngx.ssl"
+local ngx_pipe = require "ngx.pipe"
+
 local pl_path = require "pl.path"
 local raw_log = require "ngx.errlog".raw_log
 
@@ -34,15 +36,27 @@ local running_instances = {}
 
 Configuration
 
-The external_plugins_config YAML file defines a list of plugin servers.  Each one
-can have the following fields:
+We require three settings to communicate with each pluginserver.  To make it
+fit in the config structure, use a dynamic namespace and generous defaults.
 
-name: (required) a unique string.  Shouldn't collide with Lua packages available as `kong.plugins.<name>`
-socket: (required) path of a unix domain socket to use for RPC.
-exec: (optional) executable file of the server.  If omitted, the server process won't be managed by Kong.
-args: (optional) a list of strings to be passed as command line arguments.
-env: (optional) a {string:string} map to be passed as environment variables.
-info_cmd: (optional) command line to request plugin info.
+- pluginserver_names: a list of names, one for each pluginserver.
+
+- pluginserver_XXX_socket: unix socket to communicate with the pluginserver.
+- pluginserver_XXX_start_cmd: command line to strat the pluginserver.
+- pluginserver_XXX_query_cmd: command line to query the pluginserver.
+
+Note: the `_start_cmd` and `_query_cmd` are set to the defaults only if
+they exist on the filesystem.  If omitted and the default doesn't exist,
+they're disabled.
+
+A disabled `_start_cmd` (unset and the default doesn't exist in the filesystem)
+means this process isn't managed by Kong.  It's expected that the socket
+still works, supposedly handled by an externally-managed process.
+
+A disable `_query_cmd` means it won't be queried and so the corresponding
+socket wouldn't be used, even if the process is managed (if the `_start_cmd`
+is valid).  Currently this has no use, but it could eventually be added via
+other means, perhaps dynamically.
 
 --]]
 
@@ -200,7 +214,7 @@ end
 
 --[[
 
-Exposed API
+Kong API exposed to external plugins
 
 --]]
 
@@ -446,11 +460,9 @@ before full cosocket is available.  At one time, we used blocking I/O to do RPC 
 non-yielding phases, but was considered dangerous.  The alternative is to use
 `io.popen(cmd)` to ask fot that info.
 
-
-In the external plugins configuration, the `.info_cmd` field contains a string
-to be executed as a command line.  The output should be a JSON string that decodes
-as an array of objects, each defining the name, priority, version and schema of one
-plugin.
+The pluginserver_XXX_query_cmd contains a string to be executed as a command line.
+The output should be a JSON string that decodes as an array of objects, each
+defining the name, priority, version,  schema and phases of one plugin.
 
     [{
       "name": ... ,
@@ -563,12 +575,12 @@ end
 
 Process management
 
-Servers that specify an `.exec` field are launched and managed by Kong.
-This is an attempt to duplicate the smallest reasonable subset of systemd.
+Pluginservers with a corresponding `pluginserver_XXX_start_cmd` field are managed
+by Kong.  Stdout and stderr are joined and logged, if it dies, Kong logs the
+event and respawns the server.
 
-Each process specifies executable, arguments and environment.
-Stdout and stderr are joined and logged, if it dies, Kong logs the event
-and respawns the server.
+If the `_start_cmd` is unset (and the default doesn't exist in the filesystem)
+it's assumed the process is managed externally.
 
 --]]
 
@@ -588,53 +600,39 @@ local function grab_logs(proc, name)
   end
 end
 
-local function handle_server(server_def)
-  if not server_def.socket then
-    -- no error, just ignore
+local function pluginserver_timer(premature, server_def)
+  if premature then
     return
   end
 
-  if server_def.start_command then
-    ngx_timer_at(0, function(premature)
-      if premature then
-        return
+  while not ngx.worker.exiting() do
+    kong.log.notice("Starting " .. server_def.name or "")
+    server_def.proc = assert(ngx_pipe.spawn(server_def.start_command, {
+      merge_stderr = true,
+    }))
+    server_def.proc:set_timeouts(nil, nil, nil, 0)     -- block until something actually happens
+
+    while true do
+      grab_logs(server_def.proc, server_def.name)
+      local ok, reason, status = server_def.proc:wait()
+      if ok ~= nil or reason == "exited" then
+        kong.log.notice("external pluginserver '", server_def.name, "' terminated: ", tostring(reason), " ", tostring(status))
+        break
       end
-
-      local ngx_pipe = require "ngx.pipe"
-
-      while not ngx.worker.exiting() do
-        kong.log.notice("Starting " .. server_def.name or "")
-        server_def.proc = assert(ngx_pipe.spawn(server_def.start_command, {
-          merge_stderr = true,
-        }))
-        server_def.proc:set_timeouts(nil, nil, nil, 0)     -- block until something actually happens
-
-        while true do
-          grab_logs(server_def.proc, server_def.name)
-          local ok, reason, status = server_def.proc:wait()
-          if ok ~= nil or reason == "exited" then
-            kong.log.notice("external pluginserver '", server_def.name, "' terminated: ", tostring(reason), " ", tostring(status))
-            break
-          end
-        end
-      end
-      kong.log.notice("Exiting: go-pluginserver not respawned.")
-    end)
+    end
   end
-
-  return server_def
+  kong.log.notice("Exiting: pluginserver '", server_def.name, "' not respawned.")
 end
 
-function external_plugins.manage_servers()
+function external_plugins.start()
   if ngx.worker.id() ~= 0 then
     kong.log.notice("only worker #0 can manage")
     return
   end
 
   for i, server_def in ipairs(get_server_defs()) do
-    local server, err = handle_server(server_def)
-    if not server then
-      kong.log.err(err)
+    if server_def.start_command then
+      ngx_timer_at(0, pluginserver_timer, server_def)
     end
   end
 end

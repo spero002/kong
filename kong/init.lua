@@ -598,7 +598,7 @@ function Kong.init_worker()
 
   runloop.init_worker.after()
 
-  external_plugins.manage_servers()
+  external_plugins.start()
 
   if subsystem == "http" then
     clustering.init_worker(kong.configuration)
