@@ -28,7 +28,7 @@ RESTY_VERSION ?= `grep RESTY_VERSION $(KONG_SOURCE_LOCATION)/.requirements | awk
 RESTY_LUAROCKS_VERSION ?= `grep RESTY_LUAROCKS_VERSION $(KONG_SOURCE_LOCATION)/.requirements | awk -F"=" '{print $$2}'`
 RESTY_OPENSSL_VERSION ?= `grep RESTY_OPENSSL_VERSION $(KONG_SOURCE_LOCATION)/.requirements | awk -F"=" '{print $$2}'`
 RESTY_PCRE_VERSION ?= `grep RESTY_PCRE_VERSION $(KONG_SOURCE_LOCATION)/.requirements | awk -F"=" '{print $$2}'`
-KONG_BUILD_TOOLS ?= '4.13.0'
+KONG_BUILD_TOOLS ?= `grep KONG_BUILD_TOOLS_VERSION $(KONG_SOURCE_LOCATION)/.requirements | awk -F"=" '{print $$2}'`
 GRPCURL_VERSION ?= '9846afccbc2f34255dfb459dc6f0196a2b6dbe05'
 OPENRESTY_PATCHES_BRANCH ?= master
 KONG_NGINX_MODULE_BRANCH ?= master
@@ -137,8 +137,8 @@ dev: remove install dependencies
 
 lint:
 	@luacheck -q .
-	@!(grep -R -E -n -w '#only|#o' spec && echo "#only or #o tag detected") >&2
-	@!(grep -R -E -n -- '---\s+ONLY' t && echo "--- ONLY block detected") >&2
+	@!(grep -R -E -I -n -w '#only|#o' spec && echo "#only or #o tag detected") >&2
+	@!(grep -R -E -I -n -- '---\s+ONLY' t && echo "--- ONLY block detected") >&2
 
 test:
 	@$(TEST_CMD) spec/01-unit

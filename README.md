@@ -17,7 +17,7 @@ from startups to Global 5000 as well as government organizations.
 [Forum](https://discuss.konghq.com) |
 [Blog](https://konghq.com/blog) |
 IRC (freenode): [#kong](https://webchat.freenode.net/?channels=kong) |
-[Nightly Builds][kong-nightly-master]
+[Master Builds][kong-master-builds]
 
 ## Summary
 
@@ -122,10 +122,10 @@ code, other repos are also under active development:
   using Azure Resource Manager.
 - [Kong on Heroku](https://github.com/heroku/heroku-kong): Deploy Kong on
   Heroku in one click.
+- [Kong on IBM Cloud](https://github.com/andrew40404/installing-kong-IBM-cloud) - How to deploy Kong on IBM Cloud
 - [Kong and Instaclustr](https://www.instaclustr.com/solutions/managed-cassandra-for-kong/): Let
   Instaclustr manage your Cassandra cluster.
-- [Nightly Builds][kong-nightly-master]: Builds of the master branch available
-  every morning at about 9AM PST.
+- [Master Builds][kong-master-builds]: Docker images for each commit in the `master` branch.
 
 You can find every supported distribution at the [official installation page](https://konghq.com/install/).
 
@@ -145,6 +145,9 @@ Guide](https://docs.konghq.com/latest/plugin-development/), or browse an
 online version of Kong's source code documentation in the [Plugin Development
 Kit (PDK) Reference](https://docs.konghq.com/latest/pdk/).
 
+For a quick start with custom plugin development, check out [Pongo](https://github.com/Kong/kong-pongo)
+and the [plugin template](https://github.com/Kong/kong-plugin) explained in detail below.
+
 #### Docker
 
 You can use Docker / docker-compose and a mounted volume to develop Kong by
@@ -158,6 +161,23 @@ dependencies needed to run a particular branch of Kong locally, as well
 as easily switching across versions, configurations and dependencies. It
 has support for running Kong in Hybrid (CP/DP) mode, testing migrations,
 running a Kong cluster, among other [features](https://github.com/Kong/gojira/blob/master/doc/manual.md).
+
+#### Kong Pongo
+
+[Pongo](https://github.com/Kong/kong-pongo) is another CLI like Gojira,
+but specific for plugin development. It is docker-compose based and will
+create local test environments including all dependencies. Core features
+are running tests, integrated linter, config initialization, CI support,
+and custom dependencies.
+
+#### Kong Plugin Template
+
+The [plugin template](https://github.com/Kong/kong-plugin) provides a basic
+plugin and is considered a best-practices plugin repository. When writing
+custom plugins we strongly suggest you start by using this repository as a
+starting point. It contains the proper file structures, configuration files,
+and CI setup to get up and running quickly. This repository seamlessly
+integrates with [Pongo](https://github.com/Kong/kong-pongo).
 
 #### Vagrant
 
@@ -291,7 +311,7 @@ limitations under the License.
 [kong-url]: https://konghq.com/
 [kong-logo]: https://konghq.com/wp-content/uploads/2018/05/kong-logo-github-readme.png
 [kong-benefits]: https://konghq.com/wp-content/uploads/2018/05/kong-benefits-github-readme.png
-[kong-nightly-master]: https://bintray.com/kong/kong-nightly/master
+[kong-master-builds]: https://hub.docker.com/r/kong/kong/tags
 [badge-action-url]: https://github.com/Kong/kong/actions
 [badge-action-image]: https://github.com/Kong/kong/workflows/Build%20&%20Test/badge.svg
 

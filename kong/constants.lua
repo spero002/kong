@@ -110,6 +110,7 @@ local constants = {
     "tags",
     "ca_certificates",
     "clustering_data_planes",
+    "parameters",
   },
   ENTITY_CACHE_STORE = setmetatable({
     consumers = "cache",
@@ -163,12 +164,25 @@ local constants = {
   PROTOCOLS = protocols,
   PROTOCOLS_WITH_SUBSYSTEM = protocols_with_subsystem,
 
-  DECLARATIVE_FLIPS = {
-    name = "declarative:flips",
-    ttl = 60,
-  }
+  DECLARATIVE_PAGE_KEY = "declarative:page",
+  DECLARATIVE_LOAD_KEY = "declarative_config:loaded",
+  DECLARATIVE_HASH_KEY = "declarative_config:hash",
+
+  CLUSTER_ID_PARAM_KEY = "cluster_id",
+
+  CLUSTERING_SYNC_STATUS = {
+    { UNKNOWN                     = "unknown", },
+    { NORMAL                      = "normal", },
+    { KONG_VERSION_INCOMPATIBLE   = "kong_version_incompatible", },
+    { PLUGIN_SET_INCOMPATIBLE     = "plugin_set_incompatible", },
+    { PLUGIN_VERSION_INCOMPATIBLE = "plugin_version_incompatible", },
+  },
 }
 
+for _, v in ipairs(constants.CLUSTERING_SYNC_STATUS) do
+  local k, v = next(v)
+  constants.CLUSTERING_SYNC_STATUS[k] = v
+end
 
 -- Make the CORE_ENTITIES table usable both as an ordered array and as a set
 for _, v in ipairs(constants.CORE_ENTITIES) do

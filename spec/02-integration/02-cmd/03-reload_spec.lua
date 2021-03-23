@@ -18,8 +18,9 @@ local function get_kong_workers()
     end
     local body = assert.res_status(200, res)
     local json = cjson.decode(body)
+
     admin_client:close()
-    workers = json.prng_seeds
+    workers = json.pids.workers
     return true
   end, 10)
   return workers
@@ -54,13 +55,18 @@ local function wait_until_no_common_workers(workers, expected_total, strategy)
     local json = cjson.decode(assert.res_status(200, res))
     admin_client:close()
 
-    local new_workers = json.prng_seeds
+    local new_workers = json.pids.workers
     local total = 0
     local common = 0
-    for k, v in pairs(new_workers) do
-      total = total + 1
-      if workers[k] == v then
-        common = common + 1
+    if new_workers then
+      for _, v in ipairs(new_workers) do
+        total = total + 1
+        for _, v_old in ipairs(workers) do
+          if v == v_old then
+            common = common + 1
+            break
+          end
+        end
       end
     end
     return common == 0 and total == (expected_total or total)
@@ -72,7 +78,7 @@ local function kong_reload(strategy, ...)
   local workers = get_kong_workers()
   local ok, err = helpers.kong_exec(...)
   if ok then
-    wait_until_no_common_workers(workers, nil, strategy)
+    wait_until_no_common_workers(workers, 1, strategy)
   end
   return ok, err
 end
@@ -120,11 +126,37 @@ describe("kong reload #" .. strategy, function()
     local nginx_pid = assert(helpers.file.read(helpers.test_conf.nginx_pid),
                              "no nginx master PID")
 
+    assert(helpers.kong_exec("reload --conf spec/fixtures/reload.conf"))
+
+    wait_until_no_common_workers(workers, 1)
+
+    -- same master PID
+    assert.equal(nginx_pid, helpers.file.read(helpers.test_conf.nginx_pid))
+
+    -- new proxy port
+    client = helpers.http_client("0.0.0.0", 9000, 5000)
+    client:close()
+  end)
+
+  it("reloads from environment variables", function()
+    assert(helpers.start_kong({
+      proxy_listen = "0.0.0.0:9002"
+    }, nil, true))
+
+    -- http_client errors out if cannot connect
+    local client = helpers.http_client("0.0.0.0", 9002, 5000)
+    client:close()
+
+    local workers = get_kong_workers()
+
+    local nginx_pid = assert(helpers.file.read(helpers.test_conf.nginx_pid),
+                             "no nginx master PID")
+
     assert(helpers.kong_exec("reload --conf " .. helpers.test_conf_path, {
       proxy_listen = "0.0.0.0:9000"
     }))
 
-    wait_until_no_common_workers(workers, 2)
+    wait_until_no_common_workers(workers, 1)
 
     -- same master PID
     assert.equal(nginx_pid, helpers.file.read(helpers.test_conf.nginx_pid))
@@ -149,7 +181,7 @@ describe("kong reload #" .. strategy, function()
            .. " --nginx-conf spec/fixtures/custom_nginx.template"))
 
 
-    wait_until_no_common_workers(workers, 2)
+    wait_until_no_common_workers(workers, 1)
 
     -- new server
     client = helpers.http_client(helpers.mock_upstream_host,
@@ -178,7 +210,7 @@ describe("kong reload #" .. strategy, function()
     local res = assert(client:get("/"))
     local body = assert.res_status(200, res)
     local json = cjson.decode(body)
-    local prng_seeds_1 = json.prng_seeds
+    local pids_1 = json.pids
     client:close()
 
     assert(kong_reload(strategy, "reload --prefix " .. helpers.test_conf.prefix))
@@ -187,11 +219,15 @@ describe("kong reload #" .. strategy, function()
     local res = assert(client:get("/"))
     local body = assert.res_status(200, res)
     local json = cjson.decode(body)
-    local prng_seeds_2 = json.prng_seeds
+    local pids_2 = json.pids
     client:close()
 
-    for k in pairs(prng_seeds_1) do
-      assert.is_nil(prng_seeds_2[k])
+    assert.equal(pids_2.master, pids_1.master)
+
+    for _, v in ipairs(pids_2.workers) do
+      for _, v_old in ipairs(pids_1.workers) do
+        assert.not_equal(v, v_old)
+      end
     end
   end)
 
@@ -290,7 +326,9 @@ describe("kong reload #" .. strategy, function()
             - example.test
       ]], yaml_file)
 
-      assert(kong_reload(strategy, "reload --prefix " .. helpers.test_conf.prefix))
+      assert(kong_reload(strategy, "reload --prefix " .. helpers.test_conf.prefix, {
+        declarative_config = yaml_file,
+      }))
 
       helpers.wait_until(function()
         pok, admin_client = pcall(helpers.admin_client)
@@ -358,7 +396,102 @@ describe("kong reload #" .. strategy, function()
         return true
       end)
 
+      assert(kong_reload(strategy, "reload --prefix " .. helpers.test_conf.prefix))
+
       admin_client = assert(helpers.admin_client())
+      local res = assert(admin_client:send {
+        method = "GET",
+        path = "/services",
+      })
+      assert.res_status(200, res)
+
+      local body = assert.res_status(200, res)
+      local json = cjson.decode(body)
+      assert.same(1, #json.data)
+      assert.same(ngx.null, json.next)
+      admin_client:close()
+
+      return "my-service" == json.data[1].name
+    end)
+
+    it("preserves declarative config from memory even when kong was started with a declarative_config", function()
+      local yaml_file = helpers.make_yaml_file [[
+        _format_version: "1.1"
+        services:
+        - name: my-service-on-start
+          url: http://127.0.0.1:15555
+          routes:
+          - name: example-route
+            hosts:
+            - example.test
+      ]]
+
+      local pok, admin_client
+
+      finally(function()
+        helpers.stop_kong(helpers.test_conf.prefix, true)
+        if admin_client then
+          admin_client:close()
+        end
+      end)
+
+      assert(helpers.start_kong({
+        database = "off",
+        nginx_worker_processes = 1,
+        declarative_config = yaml_file,
+        nginx_conf = "spec/fixtures/custom_nginx.template",
+      }))
+
+      helpers.wait_until(function()
+        pok, admin_client = pcall(helpers.admin_client)
+        if not pok then
+          return false
+        end
+
+        local res = assert(admin_client:send {
+          method = "GET",
+          path = "/services",
+        })
+        assert.res_status(200, res)
+
+        local body = assert.res_status(200, res)
+        local json = cjson.decode(body)
+        assert.same(1, #json.data)
+        assert.same(ngx.null, json.next)
+
+        admin_client:close()
+
+        return "my-service-on-start" == json.data[1].name
+      end, 10)
+
+      helpers.wait_until(function()
+        pok, admin_client = pcall(helpers.admin_client)
+        if not pok then
+          return false
+        end
+
+        local res = assert(admin_client:send {
+          method = "POST",
+          path = "/config",
+          headers = {
+            ["Content-Type"] = "application/json",
+          },
+          body = {
+            _format_version = "1.1",
+            services = {
+              {
+                name = "my-service",
+                url = "http://127.0.0.1:15555",
+              }
+            }
+          },
+        }, 10)
+        assert.res_status(201, res)
+
+        admin_client:close()
+
+        return true
+      end)
 
       assert(kong_reload(strategy, "reload --prefix " .. helpers.test_conf.prefix))
 
@@ -451,7 +584,9 @@ describe("kong reload #" .. strategy, function()
             weight: 100
       ]], yaml_file)
 
-      assert(kong_reload(strategy, "reload --prefix " .. helpers.test_conf.prefix))
+      assert(kong_reload(strategy, "reload --prefix " .. helpers.test_conf.prefix, {
+        declarative_config = yaml_file,
+      }))
 
       helpers.wait_until(function()
         pok, admin_client = pcall(helpers.admin_client)
@@ -582,8 +717,9 @@ describe("key-auth plugin invalidation on dbless reload #off", function()
         keyauth_credentials:
         - key: my-new-key
     ]], yaml_file)
-    assert(kong_reload("off", "reload --prefix " .. helpers.test_conf.prefix))
-
+    assert(kong_reload("off", "reload --prefix " .. helpers.test_conf.prefix, {
+      declarative_config = yaml_file,
+    }))
 
     local res
 

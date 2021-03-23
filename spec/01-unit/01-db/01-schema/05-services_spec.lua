@@ -329,7 +329,6 @@ describe("services", function()
       local invalid_hosts = {
         "/example",
         ".example",
-        "example.",
         "example:",
         "mock;bin",
         "example.com/org",
@@ -388,6 +387,7 @@ describe("services", function()
         "hello.abcd",
         "example_api.com",
         "localhost",
+        "example.test.",
         -- below:
         -- punycode examples from RFC3492;
         -- https://tools.ietf.org/html/rfc3492#page-14
@@ -444,18 +444,18 @@ describe("services", function()
         "examp;le",
         "examp/le",
         "examp le",
+        -- see tests for utils.validate_utf8 for more invalid values
+        string.char(105, 213, 205, 149),
       }
 
       for i = 1, #invalid_names do
         local service = {
-          name = invalid_names[i],
+          url = "http://example.com",
+          name = invalid_names[i]
         }
-
         local ok, err = Services:validate(service)
         assert.falsy(ok)
-        assert.equal(
-          "invalid value '" .. invalid_names[i] .. "': it must only contain alphanumeric and '., -, _, ~' characters",
-          err.name)
+        assert.matches("invalid", err.name)
       end
     end)
 
@@ -470,6 +470,9 @@ describe("services", function()
         "3x4_mp_13",
         "~3x4~mp~13",
         "~3..x4~.M-p~1__3_",
+        "孔",
+        "Конг",
+        "🦍",
       }
 
       for i = 1, #valid_names do

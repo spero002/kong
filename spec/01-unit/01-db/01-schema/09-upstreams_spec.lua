@@ -199,15 +199,15 @@ describe("load upstreams", function()
 
       ok, err = Upstreams:validate({ name = "123.123.123.123" })
       assert.falsy(ok)
-      assert.same({ name = "Invalid name; no ip addresses allowed" }, err)
+      assert.same({ name = "Invalid name ('123.123.123.123'); no ip addresses allowed" }, err)
 
       ok, err = Upstreams:validate({ name = "\\\\bad\\\\////name////" })
       assert.falsy(ok)
-      assert.same({ name = "Invalid name; must be a valid hostname" }, err)
+      assert.same({ name = "Invalid name ('\\\\bad\\\\////name////'); must be a valid hostname" }, err)
 
       ok, err = Upstreams:validate({ name = "name:80" })
       assert.falsy(ok)
-      assert.same({ name = "Invalid name; no port allowed" }, err)
+      assert.same({ name = "Invalid name ('name:80'); no port allowed" }, err)
     end)
 
     -- acceptance
@@ -268,7 +268,7 @@ describe("load upstreams", function()
     it("rejects invalid configurations", function()
       local seconds = "value should be between 0 and 65535"
       local pos_integer = "value should be between 1 and 2147483648"
-      local zero_integer = "value should be between 0 and 2147483648"
+      local zero_integer = "value should be between 0 and 255"
       local status_code = "value should be between 100 and 999"
       local integer = "expected an integer"
       local boolean = "expected a boolean"
@@ -289,7 +289,6 @@ describe("load upstreams", function()
         {{ active = { https_sni = "127.0.0.1:8080", }}, invalid_ip },
         {{ active = { https_sni = "/example", }}, invalid_host },
         {{ active = { https_sni = ".example", }}, invalid_host },
-        {{ active = { https_sni = "example.", }}, invalid_host },
         {{ active = { https_sni = "example:", }}, invalid_host },
         {{ active = { https_sni = "mock;bin", }}, invalid_host },
         {{ active = { https_sni = "example.com/org", }}, invalid_host },
@@ -314,6 +313,7 @@ describe("load upstreams", function()
         {{ active = { unhealthy = { timeouts = 1 }}, threshold = true}, number },
         --{{ active = { healthy = { successes = 0 }}}, "must be an integer" },
         {{ active = { healthy = { successes = -1 }}}, zero_integer },
+        {{ active = { healthy = { successes = 256 }}}, zero_integer },
         {{ active = { unhealthy = { interval = -1 }}}, seconds },
         {{ active = { unhealthy = { interval = 1e+42 }}}, seconds },
         {{ active = { unhealthy = { http_statuses = 404 }}}, "expected an array" },
@@ -322,13 +322,16 @@ describe("load upstreams", function()
         {{ active = { unhealthy = { http_statuses = { 99 }}}}, status_code },
         {{ active = { unhealthy = { http_statuses = { 1000 }}}}, status_code },
         {{ active = { unhealthy = { tcp_failures = 0.5 }}}, integer },
+        {{ active = { unhealthy = { tcp_failures = 256 }}}, zero_integer },
         --{{ active = { unhealthy = { tcp_failures = 0 }}}, integer },
         {{ active = { unhealthy = { tcp_failures = -1 }}}, zero_integer },
         {{ active = { unhealthy = { timeouts = 0.5 }}}, integer },
+        {{ active = { unhealthy = { timeouts = 256 }}}, zero_integer },
         --{{ active = { unhealthy = { timeouts = 0 }}}, integer },
         {{ active = { unhealthy = { timeouts = -1 }}}, zero_integer },
         {{ active = { unhealthy = { http_failures = 0.5 }}}, integer},
         {{ active = { unhealthy = { http_failures = -1 }}}, zero_integer },
+        {{ active = { unhealthy = { http_failures = 256 }}}, zero_integer },
         {{ passive = { healthy = { http_statuses = 404 }}}, "expected an array" },
         {{ passive = { healthy = { http_statuses = { "ovo" }}}}, integer },
         {{ passive = { healthy = { http_statuses = { -1 }}}}, status_code },
@@ -345,12 +348,15 @@ describe("load upstreams", function()
         {{ passive = { unhealthy = { tcp_failures = 0.5 }}}, integer },
         --{{ passive = { unhealthy = { tcp_failures = 0 }}}, integer },
         {{ passive = { unhealthy = { tcp_failures = -1 }}}, zero_integer },
+        {{ passive = { unhealthy = { tcp_failures = 256 }}}, zero_integer },
         {{ passive = { unhealthy = { timeouts = 0.5 }}}, integer },
+        {{ passive = { unhealthy = { timeouts = 256 }}}, zero_integer },
         --{{ passive = { unhealthy = { timeouts = 0 }}}, integer },
         {{ passive = { unhealthy = { timeouts = -1 }}}, zero_integer },
         {{ passive = { unhealthy = { http_failures = 0.5 }}}, integer },
         --{{ passive = { unhealthy = { http_failures = 0 }}}, integer },
         {{ passive = { unhealthy = { http_failures = -1 }}}, zero_integer },
+        {{ passive = { unhealthy = { http_failures = 256 }}}, zero_integer },
         {{ passive = { unhealthy = { timeouts = 1 }}, threshold = -1}, threshold },
         {{ passive = { unhealthy = { timeouts = 1 }}, threshold = 101}, threshold },
         {{ passive = { unhealthy = { timeouts = 1 }}, threshold = "50"}, number },
@@ -385,24 +391,32 @@ describe("load upstreams", function()
         { active = { http_path = "/" }},
         { active = { http_path = "/test" }},
         { active = { https_sni = "example.com" }},
+        { active = { https_sni = "example.test.", }},
         { active = { https_verify_certificate = false }},
         { active = { healthy = { interval = 0 }}},
         { active = { healthy = { http_statuses = { 200, 300 } }}},
         { active = { healthy = { successes = 2 }}},
+        { active = { healthy = { successes = 255 }}},
         { active = { unhealthy = { interval = 0 }}},
         { active = { unhealthy = { http_statuses = { 404 }}}},
         { active = { unhealthy = { tcp_failures = 3 }}},
+        { active = { unhealthy = { tcp_failures = 255 }}},
         { active = { unhealthy = { timeouts = 9 }}},
+        { active = { unhealthy = { timeouts = 255 }}},
         { active = { unhealthy = { http_failures = 2 }}},
         { active = { unhealthy = { http_failures = 2 }}, threshold = 0},
         { active = { unhealthy = { http_failures = 2 }}, threshold = 50.50},
         { active = { unhealthy = { http_failures = 2 }}, threshold = 100},
         { passive = { healthy = { http_statuses = { 200, 201 } }}},
         { passive = { healthy = { successes = 2 }}},
+        { passive = { healthy = { successes = 255 }}},
         { passive = { unhealthy = { http_statuses = { 400, 500 } }}},
         { passive = { unhealthy = { tcp_failures = 8 }}},
+        { passive = { unhealthy = { tcp_failures = 255 }}},
         { passive = { unhealthy = { timeouts = 1 }}},
+        { passive = { unhealthy = { timeouts = 255 }}},
         { passive = { unhealthy = { http_failures = 2 }}},
+        { passive = { unhealthy = { http_failures = 255 }}},
         { passive = { unhealthy = { http_failures = 2 }}, threshold = 0},
         { passive = { unhealthy = { http_failures = 2 }}, threshold = 50.50},
         { passive = { unhealthy = { http_failures = 2 }}, threshold = 100},

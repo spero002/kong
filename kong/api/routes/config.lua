@@ -77,9 +77,14 @@ return {
       else
         local config = self.params.config
         if not config then
-          return kong.response.exit(400, {
-            message = "expected a declarative configuration"
-          })
+          local body = kong.request.get_raw_body()
+          if type(body) == "string" and #body > 0 then
+            config = body
+          else
+            return kong.response.exit(400, {
+              message = "expected a declarative configuration"
+            })
+          end
         end
         entities, _, err_t, meta, new_hash =
           dc:parse_string(config, nil, accept, old_hash)
@@ -104,6 +109,12 @@ return {
         if err == "timeout" then
           return kong.response.exit(504, {
             message = "Timed out while loading configuration"
+          })
+        end
+
+        if err == "exiting" then
+          return kong.response.exit(503, {
+            message = "Kong currently exiting"
           })
         end
 

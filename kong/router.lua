@@ -1,11 +1,12 @@
 local constants     = require "kong.constants"
+local ipmatcher     = require "resty.ipmatcher"
 local lrucache      = require "resty.lrucache"
 local utils         = require "kong.tools.utils"
-local px            = require "resty.mediador.proxy"
 local bit           = require "bit"
 
 
 local hostname_type = utils.hostname_type
+local normalize     = require("kong.tools.uri").normalize
 local subsystem     = ngx.config.subsystem
 local get_method    = ngx.req.get_method
 local get_headers   = ngx.req.get_headers
@@ -497,7 +498,8 @@ local function marshall_route(r)
         local range_f
 
         if source.ip and find(source.ip, "/", nil, true) then
-          range_f = px.compile(source.ip)
+          local matcher = ipmatcher.new({ source.ip })
+          range_f = function(ip) return matcher:match(ip) end
         end
 
         insert(route_t.sources, {
@@ -530,7 +532,8 @@ local function marshall_route(r)
         local range_f
 
         if destination.ip and find(destination.ip, "/", nil, true) then
-          range_f = px.compile(destination.ip)
+          local matcher = ipmatcher.new({ destination.ip })
+          range_f = function(ip) return matcher:match(ip) end
         end
 
         insert(route_t.destinations, {
@@ -767,6 +770,27 @@ local function categorize_route_t(route_t, bit_category, categories)
 end
 
 
+local function sanitize_uri_postfix(uri_postfix)
+  if not uri_postfix or uri_postfix == "" then
+    return uri_postfix
+  end
+
+  if uri_postfix == "." or uri_postfix == ".." then
+    return ""
+  end
+
+  if sub(uri_postfix, 1, 2) == "./" then
+    return sub(uri_postfix, 3)
+  end
+
+  if sub(uri_postfix, 1, 3) == "../" then
+    return sub(uri_postfix, 4)
+  end
+
+  return uri_postfix
+end
+
+
 do
   local matchers = {
     [MATCH_RULES.HOST] = function(route_t, ctx)
@@ -841,16 +865,19 @@ do
             end
 
             if m then
-              ctx.matches.uri_postfix = m.uri_postfix
-              ctx.matches.uri = uri_t.value
-
-              if m.uri_postfix then
-                ctx.matches.uri_prefix = sub(ctx.req_uri, 1, -(#m.uri_postfix + 1))
+              local uri_postfix = m.uri_postfix
+              if uri_postfix then
+                ctx.matches.uri_prefix = sub(ctx.req_uri, 1, -(#uri_postfix + 1))
 
                 -- remove the uri_postfix group
                 m[#m] = nil
                 m.uri_postfix = nil
+
+                uri_postfix = sanitize_uri_postfix(uri_postfix)
               end
+
+              ctx.matches.uri = uri_t.value
+              ctx.matches.uri_postfix = uri_postfix
 
               if uri_t.has_captures then
                 ctx.matches.uri_captures = m
@@ -862,7 +889,7 @@ do
 
           -- plain or prefix match from the index
           ctx.matches.uri_prefix = sub(ctx.req_uri, 1, #uri_t.value)
-          ctx.matches.uri_postfix = sub(ctx.req_uri, #uri_t.value + 1)
+          ctx.matches.uri_postfix = sanitize_uri_postfix(sub(ctx.req_uri, #uri_t.value + 1))
           ctx.matches.uri = uri_t.value
 
           return true
@@ -880,16 +907,19 @@ do
           end
 
           if m then
-            ctx.matches.uri_postfix = m.uri_postfix
-            ctx.matches.uri = uri_t.value
-
-            if m.uri_postfix then
-              ctx.matches.uri_prefix = sub(ctx.req_uri, 1, -(#m.uri_postfix + 1))
+            local uri_postfix = m.uri_postfix
+            if uri_postfix then
+              ctx.matches.uri_prefix = sub(ctx.req_uri, 1, -(#uri_postfix + 1))
 
               -- remove the uri_postfix group
               m[#m] = nil
               m.uri_postfix = nil
+
+              uri_postfix = sanitize_uri_postfix(uri_postfix)
             end
+
+            ctx.matches.uri = uri_t.value
+            ctx.matches.uri_postfix = uri_postfix
 
             if uri_t.has_captures then
               ctx.matches.uri_captures = m
@@ -903,7 +933,7 @@ do
           local from, to = find(ctx.req_uri, uri_t.value, nil, true)
           if from == 1 then
             ctx.matches.uri_prefix = sub(ctx.req_uri, 1, to)
-            ctx.matches.uri_postfix = sub(ctx.req_uri, to + 1)
+            ctx.matches.uri_postfix = sanitize_uri_postfix(sub(ctx.req_uri, to + 1))
             ctx.matches.uri = uri_t.value
 
             return true
@@ -1726,6 +1756,8 @@ function _M.new(routes)
         if idx then
           req_uri = sub(req_uri, 1, idx - 1)
         end
+
+        req_uri = normalize(req_uri, true)
       end
 
       local match_t = find_route(req_method, req_uri, req_host, req_scheme,
@@ -1766,11 +1798,11 @@ function _M.new(routes)
   else -- stream
     local server_name = require("ngx.ssl").server_name
 
-    function self.exec()
+    function self.exec(ctx)
       local src_ip = var.remote_addr
       local src_port = tonumber(var.remote_port, 10)
       local dst_ip = var.server_addr
-      local dst_port = tonumber(ngx.ctx.host_port, 10)
+      local dst_port = tonumber((ctx or ngx.ctx).host_port, 10)
                     or tonumber(var.server_port, 10)
       -- error value for non-TLS connections ignored intentionally
       local sni, _ = server_name()
